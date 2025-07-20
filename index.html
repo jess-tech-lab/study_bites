@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discover• MindfulMeals</title>
+    <link href="https://fonts.googleapis.com/css2?family=Chela+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="#" class="logo">MindfulMeals</a>
+                <div class="location-badge">
+                    <span>📍</span>
+                    <span>Toronto, ON</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <section class="hero-section">
+                <h1 class="hero-title">YOUR MEAL, YOUR WAY</h1>
+                <p class="hero-subtitle">Discover restaurants for your values and preferences</p>
+            </section>
+
+            <section class="filter-section">
+                <h2 class="filter-title">Your Preferences</h2>
+                <div class="filters-grid">
+                    <div class="filter-item">
+                        <input type="checkbox" id="vegan" class="filter-input" checked>
+                        <label for="vegan" class="filter-label">
+                            <div class="filter-text">
+                                <span class="filter-name">Vegan Options</span>
+                            </div>
+                            <div class="toggle-indicator"></div>
+                        </label>
+                    </div>
+
+                    <div class="filter-item">
+                        <input type="checkbox" id="wheelchair" class="filter-input" checked>
+                        <label for="wheelchair" class="filter-label">
+                            <div class="filter-text">
+                                <span class="filter-name">Wheelchair</span>
+                            </div>
+                            <div class="toggle-indicator"></div>
+                        </label>
+                    </div>
+
+                    <div class="filter-item">
+                        <input type="checkbox" id="budget" class="filter-input" checked>
+                        <label for="budget" class="filter-label">
+                            <div class="filter-text">
+                                <span class="filter-name">Budget Friendly</span>
+                            </div>
+                            <div class="toggle-indicator"></div>
+                        </label>
+                    </div>
+
+                    <div class="filter-item">
+                        <input type="checkbox" id="kidfriendly" class="filter-input" checked>
+                        <label for="kidfriendly" class="filter-label">
+                            <div class="filter-text">
+                                <span class="filter-name">Kid Friendly</span>
+                            </div>
+                            <div class="toggle-indicator"></div>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="food-section">
+                <h2 class="section-title">What's your current vibe?</h2>
+                <div class="food-grid-container">
+                    <button class="arrow-nav left" id="prevBtn" onclick="previousFoods()">
+                        ←
+                    </button>
+                    <div class="food-grid" id="foodGrid">
+                        <!-- Food cards will be dynamically generated here -->
+                    </div>
+                    <button class="arrow-nav right" id="nextBtn" onclick="nextFoods()">
+                        →
+                    </button>
+                </div>
+            </section>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Finding the perfect restaurant for you...</p>
+            </div>
+
+            <section class="restaurant-section" id="restaurantSection">
+                <div class="restaurant-header">
+                    <div class="restaurant-image">🏪</div>
+                    <div class="restaurant-info">
+                        <h3>Green Garden Bistro</h3>
+                        <div class="restaurant-rating">
+                            <span class="stars">★★★★★</span>
+                            <span>4.8 (234 reviews)</span>
+                        </div>
+                        <p>A cozy neighborhood bistro specializing in fresh, locally-sourced ingredients with excellent vegan options and a welcoming atmosphere for families.</p>
+                    </div>
+                </div>
+
+                <div class="restaurant-details">
+                    <div class="detail-item">
+                        <span class="detail-icon">📍</span>
+                        <span>0.3 miles away • 123 Main Street</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-icon">💰</span>
+                        <span>$$ • Moderate pricing</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-icon">🕐</span>
+                        <span>Open until 10:00 PM</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-icon">📞</span>
+                        <span>(555) 123-4567</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+    <script src="script/script.js"></script>
+</body>
+</html>
