@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discover• MindfulMeals</title>
+    <title> MindfulMeals</title>
     <link href="https://fonts.googleapis.com/css2?family=Chela+One&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <header class="header">
@@ -14,7 +14,7 @@
                 <a href="#" class="logo">MindfulMeals</a>
                 <div class="location-badge">
                     <span>📍</span>
-                    <span>Toronto, ON</span>
+                    <span>Getting location...</span>
                 </div>
             </div>
         </div>
@@ -23,7 +23,7 @@
     <main class="main">
         <div class="container">
             <section class="hero-section">
-                <h1 class="hero-title">YOUR MEAL, YOUR WAY</h1>
+                <h1 class="hero-title">your meal, your way</h1>
                 <p class="hero-subtitle">Discover restaurants for your values and preferences</p>
             </section>
 
@@ -94,38 +94,56 @@
 
             <section class="restaurant-section" id="restaurantSection">
                 <div class="restaurant-header">
-                    <div class="restaurant-image">🏪</div>
+                    <div class="restaurant-image" id="restaurantEmoji">🏪</div>
                     <div class="restaurant-info">
-                        <h3>Green Garden Bistro</h3>
+                        <h3 id="restaurantName">Green Garden Bistro</h3>
                         <div class="restaurant-rating">
-                            <span class="stars">★★★★★</span>
-                            <span>4.8 (234 reviews)</span>
+                            <span class="stars" id="restaurantStars">★★★★★</span>
+                            <span id="restaurantRating">4.8 (234 reviews)</span>
                         </div>
-                        <p>A cozy neighborhood bistro specializing in fresh, locally-sourced ingredients with excellent vegan options and a welcoming atmosphere for families.</p>
+                        <p id="restaurantDescription">A cozy neighborhood bistro specializing in fresh, locally-sourced ingredients with excellent vegan options and a welcoming atmosphere for families.</p>
                     </div>
                 </div>
 
                 <div class="restaurant-details">
                     <div class="detail-item">
                         <span class="detail-icon">📍</span>
-                        <span>0.3 miles away • 123 Main Street</span>
+                        <span id="restaurantDistance">0.3 miles away • 123 Main Street</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-icon">💰</span>
-                        <span>$$ • Moderate pricing</span>
+                        <span id="restaurantPrice">$$ • Moderate pricing</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-icon">🕐</span>
-                        <span>Open until 10:00 PM</span>
+                        <span id="restaurantHours">Open until 10:00 PM</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-icon">📞</span>
-                        <span>(555) 123-4567</span>
+                        <span id="restaurantPhone">(555) 123-4567</span>
                     </div>
                 </div>
+                <div class="restaurant-features" id="restaurantFeatures">
+                </div>
+                <div class="restaurant-actions" id="restaurantActions">
+                </div>
             </section>
+        <div class="loading" id="foodLoading">
+            <div class="spinner"></div>
+            <p class="loading-text">Loading food options...</p>
+        </div>
+        
+        <section class="error-section" id="errorSection" style="display: none;">
+            <div class="error-content">
+                <h3>Oops! Something went wrong</h3>
+                <p id="errorText">Unable to load restaurant recommendations.</p>
+                <button class="retry-btn" onclick="retryLastAction()">Try Again</button>
+            </div>
+        </section>
+        <div class="navigation-controls" style="text-align: center; margin-top: 20px;">
+            <span id="pageIndicator">1 of 5</span>
         </div>
     </main>
-    <script src="script/script.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
