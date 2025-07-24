@@ -233,7 +233,7 @@ body::before {
 
 .food-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(4, 1fr); /* 4 in a row for large screens */
     gap: 32px;
 }
 
@@ -668,7 +668,8 @@ body::before {
     }
 
     .food-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr); /* Exactly 2x2 for small screens */
+        gap: 24px;
     }
 
     .restaurant-section {
@@ -696,9 +697,26 @@ body::before {
     }
 }
 
+@media (max-width: 1024px) { /* Increased from 768px to 1024px for medium screens */
+    .food-grid-container {
+        padding: 0 40px;
+    }
+
+    .food-grid {
+        grid-template-columns: repeat(2, 1fr); /* Exactly 2x2 for medium and small screens */
+        gap: 24px;
+    }
+}
+
+/* Media query for mobile phones */
 @media (max-width: 480px) {
     .food-grid-container {
-        padding: 0 24px;
+        padding: 0 20px;
+    }
+
+    .food-grid {
+        grid-template-columns: repeat(2, 1fr);  /* Keep 2x2 grid for mobile */
+        gap: 16px;  /* Even smaller gap for mobile */
     }
 
     .logo {

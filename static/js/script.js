@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', function() {
     setupErrorHandling();
     setupAnimations();
     setupKeyboardShortcuts();
+    
+    // Initialize navigation buttons
+    updateNavigationButtons(false, true);
 });
 
 function initializeSession() {
@@ -305,10 +308,14 @@ function loadFoodOptions(page) {
         if (data.success) {
             currentFoodData = data.foods;
             currentFoodPage = data.current_page;
-            totalFoodPages = data.total_pages;
+            totalFoodPages = 3; // Fixed total pages
             
-            renderFoodCards(data.foods);
-            updateNavigationButtons(data.has_prev, data.has_next);
+            renderFoodCards(currentFoodData);
+            
+            // Update navigation based on current page
+            const hasPrev = currentFoodPage > 0;
+            const hasNext = currentFoodPage < totalFoodPages - 1;
+            updateNavigationButtons(hasPrev, hasNext);
             updatePageIndicator();
             
             setTimeout(() => {
@@ -333,7 +340,8 @@ function renderFoodCards(foods) {
     const foodGrid = document.getElementById('foodGrid');
     foodGrid.innerHTML = '';
     
-    foods.forEach((food, index) => {
+    // Only render up to 4 food cards
+    foods.slice(0, 4).forEach((food, index) => {
         const card = document.createElement('div');
         card.className = 'food-card';
         card.dataset.food = food.id;
@@ -352,7 +360,6 @@ function renderFoodCards(foods) {
             <div class="food-image">${imageContent}</div>
             <div class="food-info">
                 <div class="food-name">${food.name}</div>
-                <div class="food-description">${food.desc}</div>
             </div>
             <div class="selection-indicator">✓</div>
         `;
@@ -408,8 +415,10 @@ function nextFoods() {
         hideRestaurant();
         
         const nextBtn = document.getElementById('nextBtn');
-        nextBtn.classList.add('clicked');
-        setTimeout(() => nextBtn.classList.remove('clicked'), 200);
+        if (nextBtn) {
+            nextBtn.classList.add('clicked');
+            setTimeout(() => nextBtn.classList.remove('clicked'), 200);
+        }
     }
 }
 
@@ -420,8 +429,10 @@ function previousFoods() {
         hideRestaurant();
         
         const prevBtn = document.getElementById('prevBtn');
-        prevBtn.classList.add('clicked');
-        setTimeout(() => prevBtn.classList.remove('clicked'), 200);
+        if (prevBtn) {
+            prevBtn.classList.add('clicked');
+            setTimeout(() => prevBtn.classList.remove('clicked'), 200);
+        }
     }
 }
 
@@ -429,11 +440,19 @@ function updateNavigationButtons(hasPrev, hasNext) {
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
     
-    prevBtn.disabled = !hasPrev;
-    nextBtn.disabled = !hasNext;
+    if (prevBtn) {
+        prevBtn.disabled = !hasPrev;
+        prevBtn.style.opacity = hasPrev ? '1' : '0.5';
+        prevBtn.style.cursor = hasPrev ? 'pointer' : 'not-allowed';
+        prevBtn.style.pointerEvents = hasPrev ? 'auto' : 'none';
+    }
     
-    prevBtn.style.opacity = hasPrev ? '1' : '0.5';
-    nextBtn.style.opacity = hasNext ? '1' : '0.5';
+    if (nextBtn) {
+        nextBtn.disabled = !hasNext;
+        nextBtn.style.opacity = hasNext ? '1' : '0.5';
+        nextBtn.style.cursor = hasNext ? 'pointer' : 'not-allowed';
+        nextBtn.style.pointerEvents = hasNext ? 'auto' : 'none';
+    }
 }
 
 function updatePageIndicator() {
@@ -953,237 +972,6 @@ if (typeof module !== 'undefined' && module.exports) {
     };
 };
 
-function setupErrorHandling() {
-    window.addEventListener('error', function(e) {
-        console.error('JavaScript error:', e.error);
-        showError('Something went wrong. Please refresh the page and try again.');
-    });
-    
-    window.addEventListener('unhandledrejection', function(e) {
-        console.error('Unhandled promise rejection:', e.reason);
-        showError('Network error. Please check your internet connection.');
-    });
-    
-    window.addEventListener('offline', function() {
-        showToast('You are offline. Some features may not work.');
-    });
-    
-    window.addEventListener('online', function() {
-        showToast('Back online!');
-        retryLastAction();
-    });
-}
-
-function showError(message) {
-    const errorSection = document.getElementById('errorSection');
-    const errorText = document.getElementById('errorText');
-    const loading = document.getElementById('loading');
-    const restaurant = document.getElementById('restaurantSection');
-    
-    if (!errorSection || !errorText) {
-        showToast(message);
-        return;
-    }
-    
-    errorText.textContent = message;
-    errorSection.style.display = 'block';
-    errorSection.classList.add('show');
-    
-    loading.classList.remove('show');
-    restaurant.classList.remove('show');
-    
-    setTimeout(hideError, 8000);
-}
-
-function hideError() {
-    const errorSection = document.getElementById('errorSection');
-    if (errorSection) {
-        errorSection.classList.remove('show');
-        setTimeout(() => {
-            errorSection.style.display = 'none';
-        }, 300);
-    }
-}
-
-function retryLastAction() {
-    hideError();
-    
-    if (selectedFood) {
-        loadRestaurant(selectedFood);
-    } else {
-        loadFoodOptions(currentFoodPage);
-    }
-}
-
-// Loading spinner utility
-function addLoadingSpinner(element) {
-    const spinner = document.createElement('span');
-    spinner.className = 'loading-spinner';
-    spinner.innerHTML = '⌛';
-    element.appendChild(spinner);
-}
-
-function removeLoadingSpinner(element) {
-    const spinner = element.querySelector('.loading-spinner');
-    if (spinner) {
-        spinner.remove();
-    }
-}
-
-function setupAnimations() {
-    const observerOptions = {
-        root: null,
-        rootMargin: '50px',
-        threshold: 0.1
-    };
-    
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('animate-in');
-                
-                const siblings = Array.from(entry.target.parentNode.children);
-                const index = siblings.indexOf(entry.target);
-                entry.target.style.animationDelay = `${index * 0.1}s`;
-            }
-        });
-    }, observerOptions);
-    
-    const animateElements = document.querySelectorAll('.food-card, .restaurant-section, .filter-section');
-    animateElements.forEach(el => observer.observe(el));
-}
-
-function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', function(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            return;
-        }
-        
-        switch(e.key) {
-            case 'ArrowLeft':
-                if (!document.getElementById('prevBtn').disabled) {
-                    e.preventDefault();
-                    previousFoods();
-                }
-                break;
-            case 'ArrowRight':
-                if (!document.getElementById('nextBtn').disabled) {
-                    e.preventDefault();
-                    nextFoods();
-                }
-                break;
-            case 'r':
-            case 'R':
-                if (e.ctrlKey || e.metaKey) return; 
-                e.preventDefault();
-                retryLastAction();
-                break;
-            case 'Escape':
-                hideError();
-                dismissLocationPrompt();
-                break;
-        }
-    });
-}
-
-// Analytics tracking
-function trackRestaurantView(restaurant) {
-    const sessionId = sessionStorage.getItem('sessionId');
-    
-    fetch('/api/analytics/restaurant-view', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Session-ID': sessionId
-        },
-        body: JSON.stringify({
-            restaurant_id: restaurant.id,
-            food_id: selectedFood,
-            timestamp: new Date().toISOString(),
-            location: userLocation
-        })
-    }).catch(error => {
-        console.log('Analytics tracking failed:', error);
-    });
-}
-
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-function throttle(func, limit) {
-    let inThrottle;
-    return function() {
-        const args = arguments;
-        const context = this;
-        if (!inThrottle) {
-            func.apply(context, args);
-            inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
-        }
-    }
-}
-
-function measurePerformance(name, fn) {
-    const start = performance.now();
-    const result = fn();
-    const end = performance.now();
-    console.log(`${name} took ${end - start} milliseconds`);
-    return result;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
-        });
-    });
-});
-
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/sw.js')
-            .then(function(registration) {
-                console.log('ServiceWorker registration successful');
-            })
-            .catch(function(error) {
-                console.log('ServiceWorker registration failed: ', error);
-            });
-    });
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        debounce,
-        throttle,
-        calculateDistance: function(lat1, lon1, lat2, lon2) {
-            const R = 3959; 
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                    Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-    };
-};
-
 function formatHours(hoursObj) {
     if (!hoursObj) return 'Hours not available';
     
@@ -1255,9 +1043,13 @@ function getFeatureIcon(tagId) {
         'urn:tag:service_options:dine_in': '🍽️',
         'urn:tag:payments:credit_cards': '💳',
         'urn:tag:payments:nfc_mobile_payments': '📱',
-        'urn:tag:amenity:wi_fi': '📶',
+        'urn:tag:amenity:wi_fi': 'ᯤ',
         'urn:tag:amenity:restroom': '🚻',
-        'urn:tag:planning:accepts_reservations': '📞'
+        'urn:tag:planning:accepts_reservations': '📞',
+        'urn:tag:amenity:bar_onsite': '🍷',
+        'urn:tag:offerings:vegan_options': '🥬',
+        'urn:tag:payments:cash_only': '💵',
+        'urn:tag:children:good_for_kids': '🧒'
     };
     
     return iconMap[tagId] || '✓';

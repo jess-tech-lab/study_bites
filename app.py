@@ -33,15 +33,15 @@ def get_food_options():
             'filter.tags': 'urn:tag:genre:restaurant',
             'filter.location': f'{lat},{lng}',
             'filter.radius': 10,
-            'limit': 4,
-            'offset': page * 4
+            'limit': 12,  
+            'offset': 0 
         }
         
         response = requests.get(f'{QLOO_BASE_URL}/search', headers=headers, params=params)
         
         if response.status_code == 200:
             data = response.json()
-            foods = []
+            all_foods = []
             
             for restaurant in data.get('results', []):
                 image_url = None
@@ -49,21 +49,26 @@ def get_food_options():
                     image_url = restaurant['properties']['image'].get('url')
                 
                 food_item = {
-                    'id': restaurant.get('entity_id', f'food_{len(foods)}'),
+                    'id': restaurant.get('entity_id', f'food_{len(all_foods)}'),
                     'name': restaurant.get('name', 'Restaurant'),
                     'desc': restaurant.get('disambiguation', 'Great food'),
                     'image': image_url,
                     'restaurant_id': restaurant.get('entity_id')
                 }
-                foods.append(food_item)
+                all_foods.append(food_item)
+            
+            # Paginate the results (4 items per page)
+            start_idx = page * 4
+            end_idx = start_idx + 4
+            current_page_foods = all_foods[start_idx:end_idx]
             
             return jsonify({
                 'success': True,
-                'foods': foods,
+                'foods': current_page_foods,
                 'current_page': page,
-                'total_pages': 10,  
-                'has_next': len(foods) == 4,
-                'has_prev': page > 0
+                'total_pages': 3,
+                'has_next': page < 2, 
+                'has_prev': page > 0   
             })
             
     except Exception as e:
