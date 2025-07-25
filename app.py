@@ -9,10 +9,12 @@ from jinja2.utils import F
 import requests
 
 app = Flask(__name__)
-app.secret_key = 'pwiefj0139qwekfajefw3ptehfajwefoijwajedof2oi3ejwdsocj'
+app.secret_key = os.environ.get('FLASK_SECRET_KEY')
+print(app.secret_key)
 
 # API HERE
-QLOO_API_KEY = 'UKS35G0e_HzNqCu1MoVk8LuDUB8JwCnFW0tOU2eQmM0'
+QLOO_API_KEY = os.environ.get('QLOO_API_KEY')
+print(QLOO_API_KEY)
 QLOO_BASE_URL = 'https://hackathon.api.qloo.com'
 
 @app.route('/api/food-options')
