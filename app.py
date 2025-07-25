@@ -1,3 +1,4 @@
+import re
 from flask import Flask, render_template, request, jsonify, session
 import os
 from datetime import datetime
@@ -16,11 +17,19 @@ QLOO_BASE_URL = 'https://hackathon.api.qloo.com'
 
 @app.route('/api/food-options')
 def get_food_options():
+    query_params = request.args.to_dict()
+    print(f"Query Parameters: {query_params}")
+
     page = request.args.get('page', 0, type=int)
+    isVegan = query_params.get('vegan', '').lower() == 'true'
+    isWheelchair = query_params.get('wheelchair', '').lower() == 'true'
+    isKidFriendly = query_params.get('kid_friendly', '').lower() == 'true'
+    isBudget = query_params.get('budget', '').lower() == 'true'
 
     location = session.get('location')
     lat = location['latitude'] if location else 42.3149
     lng = location['longitude'] if location else -81.1496
+    
     
     try:
         headers = {
@@ -28,22 +37,46 @@ def get_food_options():
             'accept': 'application/json'
         }
         
+        # Build tag filters based on preferences
+        tag_filters = ['urn:tag:genre:restaurant']
+        
+        if isVegan:
+            tag_filters.append('urn:tag:offerings:vegan_options')
+        if isWheelchair:
+            tag_filters.append('urn:tag:accessibility:wheelchair_accessible_entrance')
+        if isBudget:
+            tag_filters.append('urn:tag:cost_description:inexpensive')
+        if isKidFriendly:
+            tag_filters.append('urn:tag:children:good_for_kids')
+        
+        print("Tag filters being used:", ','.join(tag_filters)) # Log tag filters
+        
         params = {
-            'query': 'restaurant',
-            'filter.tags': 'urn:tag:genre:restaurant',
+            'filter.tags': ','.join(tag_filters),
             'filter.location': f'{lat},{lng}',
             'filter.radius': 10,
-            'limit': 12,  
-            'offset': 0 
+            'limit': 500,  # Increased limit to ensure we have enough after filtering
+            'offset': 0,
+            'operator.filter.tags': 'intersection'
         }
+        
+        print("Full API parameters:", params)  # Log full parameters
         
         response = requests.get(f'{QLOO_BASE_URL}/search', headers=headers, params=params)
         
         if response.status_code == 200:
             data = response.json()
+            # print("API Response first result tags:", data.get('results', [{}])[0].get('tags', []) if data.get('results') else "No results")  # Log first result's tags
+            print(len(data.get('results', [])))
             all_foods = []
             
             for restaurant in data.get('results', []):
+                # Skip non-budget friendly places if budget preference is enabled
+                # if preferences.get('budget'):
+                #     price_level = restaurant.get('properties', {}).get('price_level')
+                #     if price_level and price_level in ['$$$', '$$$$']:
+                #         continue
+                
                 image_url = None
                 if restaurant.get('properties', {}).get('image'):
                     image_url = restaurant['properties']['image'].get('url')
@@ -57,17 +90,18 @@ def get_food_options():
                 }
                 all_foods.append(food_item)
             
-            # Paginate the results (4 items per page)
+            # Paginate the filtered results
             start_idx = page * 4
             end_idx = start_idx + 4
             current_page_foods = all_foods[start_idx:end_idx]
+            total_pages = max(1, (len(all_foods) + 3) // 4)  # Ceiling division by 4
             
             return jsonify({
                 'success': True,
                 'foods': current_page_foods,
                 'current_page': page,
-                'total_pages': 3,
-                'has_next': page < 2, 
+                'total_pages': total_pages,
+                'has_next': page < total_pages - 1,
                 'has_prev': page > 0   
             })
             
@@ -94,10 +128,14 @@ class QLOOService:
             'entity_ids': entity_id
         }
         
+        print(f"\nSearching for restaurant with entity_id: {entity_id}")  # Log entity ID
+        
         try:
             response = requests.get(f'{self.base_url}/entities', headers=headers, params=params)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            # print("Restaurant API response:", data)  # Log full response
+            return data
         except requests.exceptions.RequestException as e:
             print(f"Error calling API: {e}")
             if hasattr(e, 'response') and e.response is not None:
@@ -127,12 +165,6 @@ qloo_service = QLOOService(QLOO_API_KEY)
 def index():
     if 'user_id' not in session:
         session['user_id'] = str(uuid.uuid4())
-        session['preferences'] = {
-            'vegan': True,
-            'wheelchair': True,
-            'budget': True,
-            'kid_friendly': True
-        }
     return render_template('index.html')
 
 @app.route('/api/update-location', methods=['POST'])
@@ -149,18 +181,18 @@ def update_location():
         return jsonify({'success': True, 'message': 'Location updated successfully'})
     return jsonify({'success': False, 'error': 'Invalid location data'})
     
-@app.route('/api/update-preferences', methods=['POST'])
-def update_preferences():
-    data = request.json
-    preferences = data.get('preferences', {})
+# @app.route('/api/update-preferences', methods=['POST'])
+# def update_preferences():
+#     data = request.json
+#     preferences = data.get('preferences', {})
 
-    session['preferences'] = {
-        'vegan': preferences.get('vegan', False),
-        'wheelchair': preferences.get('wheelchair', False),
-        'budget': preferences.get('budget', False),
-        'kid_friendly': preferences.get('kid_friendly', False)
-    }
-    return jsonify({'success': True, 'message': 'Preferences updated successfully'})
+#     session['preferences'] = {
+#         'vegan': preferences.get('vegan', False),
+#         'wheelchair': preferences.get('wheelchair', False),
+#         'budget': preferences.get('budget', False),
+#         'kid_friendly': preferences.get('kid_friendly', False)
+#     }
+#     return jsonify({'success': True, 'message': 'Preferences updated successfully'})
 
 
 @app.route('/api/restaurants')
@@ -223,8 +255,10 @@ def get_restaurants():
 @app.route('/api/restaurant/<restaurant_id>')
 def get_restaurant_detail(restaurant_id):
     try:
+        print(f"\nFetching details for restaurant ID: {restaurant_id}")  # Log restaurant ID
         result = qloo_service.get_restaurant_details(restaurant_id)
         if result:
+            print("Restaurant tags:", result.get('tags', []))  # Log restaurant tags
             return jsonify({'success': True, 'restaurant': result})
         else:
             return jsonify({'success': False, 'message': 'Restaurant not found'}), 404

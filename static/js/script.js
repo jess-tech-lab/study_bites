@@ -210,55 +210,65 @@ function setupFilterListeners() {
     document.querySelectorAll('.filter-input').forEach(input => {
         input.addEventListener('change', debounce(function() {
             console.log('Filter changed:', this.id, this.checked);
-            updatePreferences();
+            loadFoodOptions(0);
 
-            const label = this.closest('label');
-            if (label) {
-                label.classList.add('filter-updated');
-                setTimeout(() => label.classList.remove('filter-updated'), 300);
-            }
+            // const label = this.closest('label');
+            // if (label) {
+            //     label.classList.add('filter-updated');
+            //     setTimeout(() => label.classList.remove('filter-updated'), 300);
+            // }
         }, 300));
     });
 }
 
-function updatePreferences() {
-    if (isLoading) return;
-    const preferences = {
-        vegan: document.getElementById('vegan').checked,
-        wheelchair: document.getElementById('wheelchair').checked,
-        budget: document.getElementById('budget').checked,
-        kid_friendly: document.getElementById('kidfriendly').checked
-    };
+// function updatePreferences() {
+//     if (isLoading) return;
+//     const preferences = {
+//         vegan: document.getElementById('vegan').checked,
+//         wheelchair: document.getElementById('wheelchair').checked,
+//         budget: document.getElementById('budget').checked,
+//         kid_friendly: document.getElementById('kidfriendly').checked
+//     };
 
-    const sessionId = sessionStorage.getItem('sessionId');
-    fetch('/api/update-preferences', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Session-ID': sessionId
-        },
-        body: JSON.stringify({ 
-            preferences,
-            radius: userRadius
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('Preferences updated on server');
-        if (selectedFood) {
-            loadRestaurant(selectedFood);
-        }
-        showToast('Preferences updated');
-    } else {
-        throw new Error(data.error || 'Failed to update preferences');
-    }
-})
-    .catch(error => {
-        console.error('Error updating preferences:', error);
-        showToast('Failed to update preferences');
-    });
-}
+//     // Log states
+//     console.log('Vegan:', preferences.vegan ? 'Checked' : 'Unchecked');
+//     console.log('Wheelchair:', preferences.wheelchair ? 'Checked' : 'Unchecked');
+//     console.log('Budget:', preferences.budget ? 'Checked' : 'Unchecked');
+//     console.log('Kid Friendly:', preferences.kid_friendly ? 'Checked' : 'Unchecked');
+
+//     const sessionId = sessionStorage.getItem('sessionId');
+//     fetch('/api/update-preferences', {
+//         method: 'POST',
+//         headers: {
+//             'Content-Type': 'application/json',
+//             'X-Session-ID': sessionId
+//         },
+//         body: JSON.stringify({ 
+//             preferences,
+//             radius: userRadius
+//         })
+//     })
+//     .then(response => response.json())
+//     .then(data => {
+//         if (data.success) {
+//             console.log('Preferences updated on server');
+//             currentFoodPage = 0;
+//         if (selectedFood) {
+//             loadRestaurant(selectedFood);
+//         } else {
+//             hideRestaurant();
+//         }
+//         loadFoodOptions(0);
+//         showToast('Preferences updated');
+//     } else {
+//         throw new Error(data.error || 'Failed to update preferences');
+//     }
+// })
+//     .catch(error => {
+//         console.error('Error updating preferences:', error);
+//         showToast('Failed to update preferences');
+//     });
+// }
 
 function setupRadiusControl() {
     const radiusSlider = document.getElementById('radiusSlider');
@@ -289,11 +299,30 @@ function loadFoodOptions(page) {
     const foodGrid = document.getElementById('foodGrid');
     const sessionId = sessionStorage.getItem('sessionId');
     
+    // Get current preferences
+    const preferences = {
+        vegan: document.getElementById('vegan').checked,
+        wheelchair: document.getElementById('wheelchair').checked,
+        budget: document.getElementById('budget').checked,
+        kid_friendly: document.getElementById('kidfriendly').checked
+    };
+    
+    console.log('Loading food options with preferences:', preferences);
+    
     if (foodLoading) foodLoading.classList.add('show');
     foodGrid.style.opacity = '0.5';
     foodGrid.style.transform = 'translateY(10px)';
 
-    fetch(`/api/food-options?page=${page}`, {
+    // Add preferences to query parameters
+    const params = new URLSearchParams({
+        page: page,
+        vegan: preferences.vegan,
+        wheelchair: preferences.wheelchair,
+        budget: preferences.budget,
+        kid_friendly: preferences.kid_friendly
+    });
+
+    fetch(`/api/food-options?${params.toString()}`, {
         headers: {
             'X-Session-ID': sessionId
         }
@@ -306,9 +335,10 @@ function loadFoodOptions(page) {
     })
     .then(data => {
         if (data.success) {
+            console.log('Received food options:', data.foods);
             currentFoodData = data.foods;
             currentFoodPage = data.current_page;
-            totalFoodPages = 3; // Fixed total pages
+            totalFoodPages = data.total_pages || 3; 
             
             renderFoodCards(currentFoodData);
             
@@ -394,6 +424,8 @@ function selectFood(card, foodId) {
         c.classList.remove('selected');
         c.style.transform = 'translateY(0)';
     });
+    
+    console.log('Selected Restaurant ID:', foodId);  // Log the selected restaurant ID
     
     card.classList.add('selected');
     card.style.transform = 'translateY(-5px)';
@@ -537,88 +569,6 @@ function loadRestaurant(foodId) {
         });
 }
 
-function displayRestaurant(restaurant) {
-    const restaurantData = restaurant.results ? restaurant.results[0] : restaurant;
-    
-    const name = restaurantData.name || 'Restaurant';
-    const properties = restaurantData.properties || {};
-    const location = restaurantData.location || {};
-    const tags = restaurantData.tags || [];
-    
-    document.getElementById('restaurantEmoji').textContent = getRestaurantEmoji(tags, properties);
-    document.getElementById('restaurantName').textContent = name;
-    
-    const description = createRestaurantDescription(properties.good_for, tags);
-    document.getElementById('restaurantDescription').textContent = description;
-    
-    const rating = parseFloat(properties.business_rating) || 4.0;
-    const reviewCount = properties.review_count || Math.floor(Math.random() * 500) + 50;  
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 >= 0.5;
-    const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-    
-    const stars = '★'.repeat(fullStars) + 
-                 (hasHalfStar ? '☆' : '') + 
-                 '☆'.repeat(emptyStars);
-    
-    document.getElementById('restaurantStars').textContent = stars;
-    document.getElementById('restaurantRating').textContent = `${rating.toFixed(1)} (${reviewCount.toLocaleString()} reviews)`;
-    
-    const address = properties.address || 'Address not available';
-    let distanceText = '';
-    
-    if (userLocation && location.lat && location.lon) {
-        const distance = calculateDistance(
-            userLocation.latitude, 
-            userLocation.longitude,
-            location.lat,
-            location.lon
-        );
-        distanceText = `${distance.toFixed(1)} miles away • `;
-    }
-    
-    document.getElementById('restaurantDistance').textContent = distanceText + address;
-    
-    const priceRange = extractPriceRange(tags) || '$';
-    const priceDesc = getPriceDescription(priceRange);
-    document.getElementById('restaurantPrice').textContent = `${priceRange} • ${priceDesc}`;
-    
-    const hoursText = formatHours(properties.hours);
-    document.getElementById('restaurantHours').textContent = hoursText;
-    
-    const phone = properties.phone || 'Phone not available';
-    document.getElementById('restaurantPhone').textContent = phone;
-    
-    displayRestaurantFeatures(tags);
-    
-    // Add action buttons if available
-    updateActionButtons({
-        phone: properties.phone,
-        website: properties.website,
-        latitude: location.lat,
-        longitude: location.lon,
-        name: name
-    });
-    
-    const restaurantSection = document.getElementById('restaurantSection');
-    restaurantSection.classList.add('show');
-    
-    setTimeout(() => {
-        const offset = window.innerWidth < 768 ? 100 : 50;
-        const elementPosition = restaurantSection.offsetTop - offset;
-        window.scrollTo({
-            top: elementPosition,
-            behavior: 'smooth'
-        });
-    }, 300);
-    
-    trackRestaurantView({
-        id: restaurantData.entity_id,
-        name: name,
-        ...restaurantData
-    });
-}
-
 function updateActionButtons(restaurant) {
     const actionsContainer = document.getElementById('restaurantActions');
     if (!actionsContainer) return;
@@ -647,10 +597,10 @@ function hideRestaurant() {
 
 function getPriceDescription(priceRange) {
     const descriptions = {
-        '$': 'Budget friendly',
-        '$$': 'Moderate pricing',
-        '$$$': 'Upscale dining',
-        '$$$$': 'Fine dining'
+        1: 'Budget friendly',
+        2: 'Moderate pricing',
+        3: 'Upscale dining',
+        4: 'Fine dining'
     };
     return descriptions[priceRange] || 'Moderate pricing';
 }
@@ -723,28 +673,28 @@ function createRestaurantDescription(goodFor, tags) {
     return description;
 }
 
-function extractPriceRange(tags) {
-    const expensiveTags = [
-        'urn:tag:genre:restaurant:fine_dining',
-        'urn:tag:genre:restaurant:upscale',
-        'urn:tag:category:wine_bar'
-    ];
+// function extractPriceRange(tags) {
+//     const expensiveTags = [
+//         'urn:tag:genre:restaurant:fine_dining',
+//         'urn:tag:genre:restaurant:upscale',
+//         'urn:tag:category:wine_bar'
+//     ];
     
-    const budgetTags = [
-        'urn:tag:genre:restaurant:fast_food',
-        'urn:tag:genre:restaurant:casual',
-        'urn:tag:category:food_truck'
-    ];
+//     const budgetTags = [
+//         'urn:tag:genre:restaurant:fast_food',
+//         'urn:tag:genre:restaurant:casual',
+//         'urn:tag:category:food_truck'
+//     ];
     
-    for (const tag of tags) {
-        if (expensiveTags.includes(tag.tag_id)) {
-            return '$$';
-        }
-        if (budgetTags.includes(tag.tag_id)) {
-            return '$';
-        }
-    }
-}
+//     for (const tag of tags) {
+//         if (expensiveTags.includes(tag.tag_id)) {
+//             return '$$';
+//         }
+//         if (budgetTags.includes(tag.tag_id)) {
+//             return '$';
+//         }
+//     }
+// }
 
 function showError(message) {
     const errorSection = document.getElementById('errorSection');
@@ -1334,6 +1284,8 @@ function displayRestaurant(restaurant) {
     const fullStars = Math.floor(rating);
     const hasHalfStar = rating % 1 >= 0.5;
     const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+    const priceLevel = properties.price_level || 1;
+    console.log("price level", priceLevel, properties.price_level);
     
     const stars = '★'.repeat(fullStars) + 
                  (hasHalfStar ? '☆' : '') + 
@@ -1360,10 +1312,10 @@ function displayRestaurant(restaurant) {
     const restaurantDistance = document.getElementById('restaurantDistance');
     if (restaurantDistance) restaurantDistance.textContent = distanceText + address;
     
-    const priceRange = extractPriceRange(tags) || '$';
-    const priceDesc = getPriceDescription(priceRange);
+    // const priceRange = extractPriceRange(tags) || '$';
+    const priceDesc = getPriceDescription(priceLevel);
     const restaurantPrice = document.getElementById('restaurantPrice');
-    if (restaurantPrice) restaurantPrice.textContent = `${priceRange} • ${priceDesc}`;
+    if (restaurantPrice) restaurantPrice.textContent = `${priceDesc}`;
     
     const hoursText = formatHours(properties.hours);
     const restaurantHours = document.getElementById('restaurantHours');
