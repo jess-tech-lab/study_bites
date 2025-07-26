@@ -7,6 +7,12 @@ import math
 import uuid
 from jinja2.utils import F
 import requests
+from transformers import CLIPModel, CLIPImageProcessor, AutoTokenizer, CLIPProcessor
+from concurrent.futures import ThreadPoolExecutor
+import torch
+from PIL import Image
+
+from io import BytesIO
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY')
@@ -16,6 +22,61 @@ print(app.secret_key)
 QLOO_API_KEY = os.environ.get('QLOO_API_KEY')
 print(QLOO_API_KEY)
 QLOO_BASE_URL = 'https://hackathon.api.qloo.com'
+
+# CLIP model
+MODEL_ID = "zer0int/CLIP-GmP-ViT-L-14"
+model = CLIPModel.from_pretrained(MODEL_ID)
+# Load processor (includes tokenizer + image processor)
+processor = CLIPProcessor.from_pretrained(MODEL_ID)
+tokenizer = processor.tokenizer
+image_processor = processor.feature_extractor
+
+labels = [
+    "meal", 
+    "restaurant interior", 
+    "restaurant exterior", "storefront",
+    "chef"
+]
+def classify_image(image_urls):
+    images = []
+
+    # Load images from URLs
+    for image_url in image_urls:
+        response = requests.get(image_url)
+        response.raise_for_status()
+        img = Image.open(BytesIO(response.content)).convert("RGB")
+        images.append(img)
+
+    # Move model and inputs to GPU if available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    # Preprocess labels and images
+    text_inputs = tokenizer(labels, return_tensors="pt", padding=True).to(device)
+    image_inputs = image_processor(images=images, return_tensors="pt").to(device)
+
+    # Inference
+    with torch.no_grad():
+        outputs = model(**text_inputs, **image_inputs)
+
+    # Get probabilities
+    logits_per_image = outputs.logits_per_image  # shape: [num_images, num_labels]
+    probs = logits_per_image.softmax(dim=1)  # same shape
+
+    # Get top prediction (no loop!)
+    top_probs, top_idxs = probs.topk(1, dim=1)
+
+    # Format results efficiently
+    results = [
+        {
+            "image": image_urls[i],
+            "label": labels[top_idxs[i].item()],
+            "score": round(top_probs[i].item(), 4)
+        }
+        for i in range(len(image_urls))
+    ]
+
+    return results
 
 @app.route('/api/food-options')
 def get_food_options():
@@ -57,8 +118,8 @@ def get_food_options():
             'filter.tags': ','.join(tag_filters),
             'filter.location': f'{lat},{lng}',
             'filter.radius': 10,
-            'limit': 500,  # Increased limit to ensure we have enough after filtering
-            'offset': 0,
+            'take': 4,  # Increased limit to ensure we have enough after filtering
+            'page': page+1,
             'operator.filter.tags': 'intersection'
         }
         
@@ -91,7 +152,14 @@ def get_food_options():
                     'restaurant_id': restaurant.get('entity_id')
                 }
                 all_foods.append(food_item)
-            
+
+
+            for food_item in all_foods:
+                image_url = [food_item['image']]
+                if image_url:
+                    classification = classify_image(image_url)
+                    print("CLASSIFICATION: ", classification)
+
             # Paginate the filtered results
             start_idx = page * 4
             end_idx = start_idx + 4
