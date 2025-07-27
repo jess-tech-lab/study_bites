@@ -111,10 +111,6 @@ def get_restaurants():
     if not food_id:
         return jsonify({'success': False, 'error': 'Food ID is required'}), 400
 
-    location = session.get('location') 
-    if not location:
-        return jsonify({'success': False, 'error': 'Location not set'}), 400
-
     print("+++++Get food id "+str(food_id))
     try:
         results = qloo_service.search_restaurants(
