@@ -42,7 +42,7 @@ function initializeSession() {
     });
 }
 
-function getUserLocation() {
+function getUserLocation(callback) {
     const locationText = document.querySelector('.location-badge span:last-child');
     if (!locationText) {
         console.error('Location display element not found');
@@ -62,7 +62,8 @@ function getUserLocation() {
                     accuracy: position.coords.accuracy
                 };
                 console.log('Location acquired:', userLocation);
-                updateServerLocation(userLocation);
+                callback(userLocation);  
+                // updateServerLocation(userLocation);
                 reverseGeocode(userLocation.latitude, userLocation.longitude);
                 removeLoadingSpinner(locationText);
 
@@ -114,7 +115,7 @@ function useDefaultLocation() {
         longitude: -81.1496,
         isDefault: true 
     };
-    updateServerLocation(userLocation);
+    // updateServerLocation(userLocation);
     
     const locationText = document.querySelector('.location-badge span:last-child');
     if (locationText) locationText.textContent = 'St. Thomas, ON';
@@ -147,33 +148,6 @@ function dismissLocationPrompt() {
     if (prompt) {
         prompt.remove();
     }
-}
-
-function updateServerLocation(location) {
-    const sessionId = sessionStorage.getItem('sessionId');
-    
-    fetch('/api/update-location', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Session-ID': sessionId
-        },
-        body: JSON.stringify({
-            ...location,
-            radius: userRadius
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('Location updated on server');
-        } else {
-            console.error('Failed to update location on server:', data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error updating location:', error);
-    });
 }
 
 function reverseGeocode(lat, lng) {
@@ -211,64 +185,9 @@ function setupFilterListeners() {
         input.addEventListener('change', debounce(function() {
             console.log('Filter changed:', this.id, this.checked);
             loadFoodOptions(0);
-
-            // const label = this.closest('label');
-            // if (label) {
-            //     label.classList.add('filter-updated');
-            //     setTimeout(() => label.classList.remove('filter-updated'), 300);
-            // }
         }, 300));
     });
 }
-
-// function updatePreferences() {
-//     if (isLoading) return;
-//     const preferences = {
-//         vegan: document.getElementById('vegan').checked,
-//         wheelchair: document.getElementById('wheelchair').checked,
-//         budget: document.getElementById('budget').checked,
-//         kid_friendly: document.getElementById('kidfriendly').checked
-//     };
-
-//     // Log states
-//     console.log('Vegan:', preferences.vegan ? 'Checked' : 'Unchecked');
-//     console.log('Wheelchair:', preferences.wheelchair ? 'Checked' : 'Unchecked');
-//     console.log('Budget:', preferences.budget ? 'Checked' : 'Unchecked');
-//     console.log('Kid Friendly:', preferences.kid_friendly ? 'Checked' : 'Unchecked');
-
-//     const sessionId = sessionStorage.getItem('sessionId');
-//     fetch('/api/update-preferences', {
-//         method: 'POST',
-//         headers: {
-//             'Content-Type': 'application/json',
-//             'X-Session-ID': sessionId
-//         },
-//         body: JSON.stringify({ 
-//             preferences,
-//             radius: userRadius
-//         })
-//     })
-//     .then(response => response.json())
-//     .then(data => {
-//         if (data.success) {
-//             console.log('Preferences updated on server');
-//             currentFoodPage = 0;
-//         if (selectedFood) {
-//             loadRestaurant(selectedFood);
-//         } else {
-//             hideRestaurant();
-//         }
-//         loadFoodOptions(0);
-//         showToast('Preferences updated');
-//     } else {
-//         throw new Error(data.error || 'Failed to update preferences');
-//     }
-// })
-//     .catch(error => {
-//         console.error('Error updating preferences:', error);
-//         showToast('Failed to update preferences');
-//     });
-// }
 
 function setupRadiusControl() {
     const radiusSlider = document.getElementById('radiusSlider');
@@ -283,7 +202,7 @@ function setupRadiusControl() {
             radiusValue.textContent = `${userRadius} km`;
 
             if (userLocation) {
-                updateServerLocation(userLocation);
+                // updateServerLocation(userLocation);
             }
             if (selectedFood) {
                 loadRestaurant(selectedFood);
@@ -313,56 +232,63 @@ function loadFoodOptions(page) {
     foodGrid.style.opacity = '0.5';
     foodGrid.style.transform = 'translateY(10px)';
 
-    // Add preferences to query parameters
-    const params = new URLSearchParams({
-        page: page,
-        vegan: preferences.vegan,
-        wheelchair: preferences.wheelchair,
-        budget: preferences.budget,
-        kid_friendly: preferences.kid_friendly
-    });
+    getUserLocation(function(location) {
+        if (location) {
+            // Add preferences to query parameters
+            const params = new URLSearchParams({
+                lat: location.latitude,
+                lng: location.longitude,
+                page: page,
+                vegan: preferences.vegan,
+                wheelchair: preferences.wheelchair,
+                budget: preferences.budget,
+                kid_friendly: preferences.kid_friendly
+            });
 
-    fetch(`/api/food-options?${params.toString()}`, {
-        headers: {
-            'X-Session-ID': sessionId
+            fetch(`/api/food-options?${params.toString()}`, {
+                headers: {
+                    'X-Session-ID': sessionId
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    console.log('Received food options:', data.foods);
+                    currentFoodData = data.foods;
+                    currentFoodPage = data.current_page;
+                    totalFoodPages = data.total_pages || 3; 
+                    
+                    renderFoodCards(currentFoodData);
+                    
+                    // Update navigation based on current page
+                    const hasPrev = currentFoodPage > 0;
+                    const hasNext = currentFoodPage < totalFoodPages - 1;
+                    updateNavigationButtons(hasPrev, hasNext);
+                    updatePageIndicator();
+                    
+                    setTimeout(() => {
+                        foodGrid.style.transform = 'translateY(0)';
+                    }, 100);
+                } else {
+                    throw new Error(data.error || 'Failed to load food options');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading food options:', error);
+                showError('Failed to load food options');
+            })
+            .finally(() => {
+                isLoading = false;
+                if (foodLoading) foodLoading.classList.remove('show');
+                foodGrid.style.opacity = '1';
+            });
+
         }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            console.log('Received food options:', data.foods);
-            currentFoodData = data.foods;
-            currentFoodPage = data.current_page;
-            totalFoodPages = data.total_pages || 3; 
-            
-            renderFoodCards(currentFoodData);
-            
-            // Update navigation based on current page
-            const hasPrev = currentFoodPage > 0;
-            const hasNext = currentFoodPage < totalFoodPages - 1;
-            updateNavigationButtons(hasPrev, hasNext);
-            updatePageIndicator();
-            
-            setTimeout(() => {
-                foodGrid.style.transform = 'translateY(0)';
-            }, 100);
-        } else {
-            throw new Error(data.error || 'Failed to load food options');
-        }
-    })
-    .catch(error => {
-        console.error('Error loading food options:', error);
-        showError('Failed to load food options');
-    })
-    .finally(() => {
-        isLoading = false;
-        if (foodLoading) foodLoading.classList.remove('show');
-        foodGrid.style.opacity = '1';
     });
 }
 
@@ -425,7 +351,7 @@ function selectFood(card, foodId) {
         c.style.transform = 'translateY(0)';
     });
     
-    console.log('Selected Restaurant ID:', foodId);  // Log the selected restaurant ID
+    console.log('Selected Restaurant ID:', foodId);  
     
     card.classList.add('selected');
     card.style.transform = 'translateY(-5px)';
@@ -672,29 +598,6 @@ function createRestaurantDescription(goodFor, tags) {
     
     return description;
 }
-
-// function extractPriceRange(tags) {
-//     const expensiveTags = [
-//         'urn:tag:genre:restaurant:fine_dining',
-//         'urn:tag:genre:restaurant:upscale',
-//         'urn:tag:category:wine_bar'
-//     ];
-    
-//     const budgetTags = [
-//         'urn:tag:genre:restaurant:fast_food',
-//         'urn:tag:genre:restaurant:casual',
-//         'urn:tag:category:food_truck'
-//     ];
-    
-//     for (const tag of tags) {
-//         if (expensiveTags.includes(tag.tag_id)) {
-//             return '$$';
-//         }
-//         if (budgetTags.includes(tag.tag_id)) {
-//             return '$';
-//         }
-//     }
-// }
 
 function showError(message) {
     const errorSection = document.getElementById('errorSection');
