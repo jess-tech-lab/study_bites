@@ -1,89 +1,20 @@
-import re
 from flask import Flask, render_template, request, jsonify, session
 import os
-from datetime import datetime
-import json
-import math
 import uuid
-from jinja2.utils import F
 import requests
-from transformers import CLIPModel, CLIPImageProcessor, AutoTokenizer, CLIPProcessor
-from concurrent.futures import ThreadPoolExecutor
-import torch
-from PIL import Image
-from io import BytesIO
 import threading
 import time
+from model.qloo import QLOOService, TOTAL_SIZE, PAGE_SIZE, QLOO_API_KEY, load_data
+from utils.ml import classify_image
+
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY')
 print(app.secret_key)
 
-# API HERE
-QLOO_API_KEY = os.environ.get('QLOO_API_KEY')
-print(QLOO_API_KEY)
-QLOO_BASE_URL = 'https://hackathon.api.qloo.com'
-
-# CLIP model
-MODEL_ID = "zer0int/CLIP-GmP-ViT-L-14"
-model = CLIPModel.from_pretrained(MODEL_ID)
-# Load processor (includes tokenizer + image processor)
-processor = CLIPProcessor.from_pretrained(MODEL_ID)
-tokenizer = processor.tokenizer
-image_processor = processor.feature_extractor
-
-PAGE_SIZE = 4
-TOTAL_SIZE = 20
 cache = {}  # key: "lat,lon" -> dict with raw, valid_flags, lock, done
 
-labels = [
-    "meal", 
-    "restaurant interior", 
-    "restaurant exterior", "storefront",
-    "chef"
-]
-def classify_image(image_url):
-    if not image_url:
-        print("+++++++++++Invalid image url")
-        return False
-
-    images = []
-
-    # Load images from URLs
-    response = requests.get(image_url)
-    response.raise_for_status()
-    img = Image.open(BytesIO(response.content)).convert("RGB")
-    images.append(img)
-
-    # Move model and inputs to GPU if available
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-
-    # Preprocess labels and images
-    text_inputs = tokenizer(labels, return_tensors="pt", padding=True).to(device)
-    image_inputs = image_processor(images=images, return_tensors="pt").to(device)
-
-    # Inference
-    with torch.no_grad():
-        outputs = model(**text_inputs, **image_inputs)
-
-    # Get probabilities
-    logits_per_image = outputs.logits_per_image  
-    probs = logits_per_image.softmax(dim=1)  
-
-    top_probs, top_idxs = probs.topk(1, dim=1)
-
-    result = {
-        "image": image_url,
-        "label": labels[top_idxs[0].item()],
-        "score": round(top_probs[0].item(), 4)
-    }
-    # print(result)
-
-    if result['label'] != "chef" and result['score'] > 0.75:
-        return True
-    else:
-        return False
+qloo_service = QLOOService(QLOO_API_KEY)
 
 @app.route('/api/food-options')
 def get_food_options():
@@ -167,119 +98,6 @@ def get_food_options():
 
         time.sleep(0.2)
 
-
-def load_data(lat, lng, isVegan, isWheelchair, isKidFriendly, isBudget):
-    try:
-        headers = {
-            'X-API-Key': QLOO_API_KEY,
-            'accept': 'application/json'
-        }
-        
-        # Build tag filters based on preferences
-        tag_filters = ['urn:tag:genre:restaurant']
-        
-        if isVegan:
-            tag_filters.append('urn:tag:offerings:vegan_options')
-        if isWheelchair:
-            tag_filters.append('urn:tag:accessibility:wheelchair_accessible_entrance')
-        if isBudget:
-            tag_filters.append('urn:tag:cost_description:inexpensive')
-        if isKidFriendly:
-            tag_filters.append('urn:tag:children:good_for_kids')
-        
-        # print("Tag filters being used:", ','.join(tag_filters))
-        
-        params = {
-            'filter.tags': ','.join(tag_filters),
-            'filter.location': f'{lat},{lng}',
-            'filter.radius': 50,
-            'take': TOTAL_SIZE,  
-            'page': 1,
-            'operator.filter.tags': 'intersection'
-        }
-        
-        print("Full API parameters:", params)  
-        
-        response = requests.get(f'{QLOO_BASE_URL}/search', headers=headers, params=params)
-        
-        if response.status_code == 200:
-            data = response.json()
-            # print("API Response first result tags:", data.get('results', [{}])[0].get('tags', []) if data.get('results') else "No results") 
-            print(len(data.get('results', [])))
-            all_foods = []
-            
-            for restaurant in data.get('results', []):                
-                image_url = None
-                if restaurant.get('properties', {}).get('image'):
-                    image_url = restaurant['properties']['image'].get('url')
-                
-                food_item = {
-                    'id': restaurant.get('entity_id', f'food_{len(all_foods)}'),
-                    'name': restaurant.get('name', 'Restaurant'),
-                    'desc': restaurant.get('disambiguation', 'Great food'),
-                    'image': image_url,
-                    'restaurant_id': restaurant.get('entity_id')
-                }
-                all_foods.append(food_item)
-
-            return all_foods
-        else:
-            print(response)                           
-    except Exception as e:
-        print(f"Error: {e}")
-    
-    return None
-
-class QLOOService:
-    def __init__(self, api_key):
-        self.api_key = api_key
-        self.base_url = QLOO_BASE_URL
-
-    def search_restaurants(self, entity_id):
-        """
-        Get restaurants based on location and filters
-        """
-        headers = {
-            'X-API-Key': self.api_key,
-            'accept': 'application/json'
-        }
-        
-        params = {
-            'entity_ids': entity_id
-        }
-        
-        print(f"\nSearching for restaurant with entity_id: {entity_id}") 
-        
-        try:
-            response = requests.get(f'{self.base_url}/entities', headers=headers, params=params)
-            response.raise_for_status()
-            data = response.json()
-            # print("Restaurant API response:", data)  
-            return data
-        except requests.exceptions.RequestException as e:
-            print(f"Error calling API: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                print(f"Response status: {e.response.status_code}")
-                print(f"Response text: {e.response.text}")
-            return None
-
-    def get_restaurant_details(self, restaurant_id):
-        """
-        Get details for a restaurant
-        """
-        headers = {
-            'X-API-Key': self.api_key,
-            'accept': 'application/json'
-        }
-        try:
-            response = requests.get(f'{self.base_url}/entities/{restaurant_id}', headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Error getting restaurant details: {e}")
-            return None
-
-qloo_service = QLOOService(QLOO_API_KEY)
 
 @app.route('/')
 def index():
