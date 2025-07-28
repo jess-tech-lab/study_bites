@@ -98,7 +98,7 @@ To stop the running application at the background:
 ```
 ps -aux | grep mindful
 kill -9 <pid>
-``
+```
 
 ## 5. Stop machine
 ```
