@@ -11,6 +11,8 @@ chmod 400 ~/Documents/projects/mindful_meals/my_key.pem
 ```
 sftp -i ~/Documents/projects/mindful_meals/my_key.pem myuser@4.155.11.254
 put /Users/myuser/Documents/projects/mindful_meals/mindful_meals.zip
+
+bye
 ```
 
 ### 1.3 Log onto the remote machine
@@ -25,7 +27,7 @@ ls
 
 ## 2. Setup env variable
 
-First get the keys from Mac
+First get the keys from local Mac
 ```
 cat ~/.zshrc    
 ```
@@ -67,7 +69,7 @@ server {
     server_name qloo.simplyjec.com;
 
     location / {
-        proxy_pass http://127.0.0.1:2000;
+        proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
@@ -80,6 +82,26 @@ Install SSL certificate
 ```
 sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d qloo.simplyjec.com
+sudo systemctl restart nginx
 ```
 
+## 4. Start instance to run in background
+```
+cd mindful_meals/
 
+source myenv/bin/activate
+
+nohup python3 app.py > flask.log 2>&1 &
+```
+
+To stop the running application at the background:
+```
+ps -aux | grep mindful
+kill -9 <pid>
+``
+
+## 5. Stop machine
+```
+sudo shutdown
+exit
+```
