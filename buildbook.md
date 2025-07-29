@@ -105,3 +105,8 @@ kill -9 <pid>
 sudo shutdown
 exit
 ```
+
+## 6. View logs
+```
+tail -f flask.log 
+```
