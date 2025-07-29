@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "study_bites"
+version = "1.0.1"
+description = "Student bites powered by Qloo Taste AI™ API and Hugging Face Image LLM"
+requires-python = ">=3.12"
+dependencies = [
+    "flask",
+    "requests",
+    "transformers",
+    "torch",
+    "pillow"
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+study_bites = [
+  "templates/*.html",
+  "static/**/*"
+]
