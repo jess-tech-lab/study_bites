@@ -1,10 +1,11 @@
 import requests
 import os
+from study_bites.utils.logger import logger
 
 QLOO_BASE_URL = 'https://hackathon.api.qloo.com'
 # API KEY
 QLOO_API_KEY = os.environ.get('QLOO_API_KEY')
-print(QLOO_API_KEY)
+logger.info(QLOO_API_KEY)
 
 PAGE_SIZE = 4
 TOTAL_SIZE = 20
@@ -28,19 +29,19 @@ class QLOOService:
             'entity_ids': entity_id
         }
         
-        print(f"\nSearching for restaurant with entity_id: {entity_id}") 
+        logger.info(f"\nSearching for restaurant with entity_id: {entity_id}") 
         
         try:
             response = requests.get(f'{self.base_url}/entities', headers=headers, params=params)
             response.raise_for_status()
             data = response.json()
-            # print("Restaurant API response:", data)  
+            # logger.info("Restaurant API response:", data)  
             return data
         except requests.exceptions.RequestException as e:
-            print(f"Error calling API: {e}")
+            logger.error(f"Error calling API: {e}")
             if hasattr(e, 'response') and e.response is not None:
-                print(f"Response status: {e.response.status_code}")
-                print(f"Response text: {e.response.text}")
+                logger.error(f"Response status: {e.response.status_code}")
+                logger.error(f"Response text: {e.response.text}")
             return None
 
     def get_restaurant_details(self, restaurant_id):
@@ -56,7 +57,7 @@ class QLOOService:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"Error getting restaurant details: {e}")
+            logger.error(f"Error getting restaurant details: {e}")
             return None
 
 
@@ -79,7 +80,7 @@ def load_data(lat, lng, isVegan, isWheelchair, isKidFriendly, isBudget):
         if isKidFriendly:
             tag_filters.append('urn:tag:children:good_for_kids')
         
-        # print("Tag filters being used:", ','.join(tag_filters))
+        # logger.info("Tag filters being used:", ','.join(tag_filters))
         
         params = {
             'filter.tags': ','.join(tag_filters),
@@ -90,14 +91,14 @@ def load_data(lat, lng, isVegan, isWheelchair, isKidFriendly, isBudget):
             'operator.filter.tags': 'intersection'
         }
         
-        print("Full API parameters:", params)  
+        logger.info("Full API parameters: %s", params)  
         
         response = requests.get(f'{QLOO_BASE_URL}/search', headers=headers, params=params)
         
         if response.status_code == 200:
             data = response.json()
-            # print("API Response first result tags:", data.get('results', [{}])[0].get('tags', []) if data.get('results') else "No results") 
-            print(len(data.get('results', [])))
+            # logger.info("API Response first result tags:", data.get('results', [{}])[0].get('tags', []) if data.get('results') else "No results") 
+            logger.info(len(data.get('results', [])))
             all_foods = []
             
             for restaurant in data.get('results', []):                
@@ -116,9 +117,9 @@ def load_data(lat, lng, isVegan, isWheelchair, isKidFriendly, isBudget):
 
             return all_foods
         else:
-            print(response)                           
+            logger.info(response)                           
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
     
     return None
 

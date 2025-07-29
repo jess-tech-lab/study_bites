@@ -7,7 +7,7 @@ let userRadius = 25;
 let isLoading = false
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('MindfulMeals app initializing...');
+    console.log('StudyBites app initializing...');
     initializeSession();
     getUserLocation();
     loadFoodOptions(0);

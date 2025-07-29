@@ -5,6 +5,7 @@ from PIL import Image
 
 import torch
 import requests
+from study_bites.utils.logger import logger
 
 labels = [
     "meal", 
@@ -30,11 +31,11 @@ def initialize_model():
         image_processor = processor.feature_extractor
         
         initialized = True
-        print("+++++++++Initialized")
+        logger.info("_____Hugging Face ML model initialized")
 
 def classify_image(image_url):
     if not image_url:
-        print("+++++++++++Invalid image url")
+        logger.info("+++++++++++Invalid image url")
         return False
 
     images = []
@@ -70,7 +71,7 @@ def classify_image(image_url):
         "label": labels[top_idxs[0].item()],
         "score": round(top_probs[0].item(), 4)
     }
-    # print(result)
+    # logger.info(result)
 
     if result['label'] != "chef" and result['score'] > 0.75:
         return True

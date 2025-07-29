@@ -1,16 +1,18 @@
 from flask import Flask, render_template, request, jsonify, session
 import os
+import sys
 import uuid
 import requests
 import threading
 import time
-from model.qloo import QLOOService, TOTAL_SIZE, PAGE_SIZE, QLOO_API_KEY, load_data
-from utils.ml import classify_image
-
+from study_bites.model.qloo import QLOOService, TOTAL_SIZE, PAGE_SIZE, QLOO_API_KEY, load_data
+from study_bites.utils.ml import classify_image
+from study_bites.utils.logger import logger
 
 app = Flask(__name__)
+
 app.secret_key = os.environ.get('FLASK_SECRET_KEY')
-print(app.secret_key)
+logger.info(app.secret_key)
 
 cache = {}  # key: "lat,lon" -> dict with raw, valid_flags, lock, done
 
@@ -19,7 +21,7 @@ qloo_service = QLOOService(QLOO_API_KEY)
 @app.route('/api/food-options')
 def get_food_options():
     query_params = request.args.to_dict()
-    print(f"Query Parameters: {query_params}")
+    logger.info(f"Query Parameters: {query_params}")
 
     page = request.args.get('page', 0, type=int)
     isVegan = query_params.get('vegan', '').lower() == 'true'
@@ -32,7 +34,7 @@ def get_food_options():
     lng = round(request.args.get('lng', 0, type=float), 4)
     
     latlng_key = f"{lat},{lng}_{int(isVegan)}{int(isWheelchair)}{int(isKidFriendly)}{int(isBudget)}"
-    print(latlng_key)
+    logger.info(latlng_key)
 
     if latlng_key not in cache:
         food_items = load_data(lat, lng, isVegan, isWheelchair, isKidFriendly, isBudget)
@@ -48,7 +50,7 @@ def get_food_options():
             index = 0
             for food_item in food_items:
                 valid = classify_image(food_item['image'])
-                print("Location "+food_item['name']+" with image "+food_item['image']+" is evaulated to be a valid image ", valid)
+                logger.info("[Location "+food_item['name']+" with image "+food_item['image']+" is evaulated to be a valid image "+str(valid)+"]")
                 with cache[latlng_key]["lock"]:
                     cache[latlng_key]["valid_flags"][index] = valid
                     index = index+1
@@ -73,10 +75,10 @@ def get_food_options():
 
                 # Valid items (preserve original order)
                 valid_items = [item for item, flag in zip(raw, flags) if flag is True]
-                print("valid items ", len(valid_items))
+                logger.info("Valid items " + str(len(valid_items)))
                 # Invalid/unvalidated items
                 invalid_items = [item for item, flag in zip(raw, flags) if flag is not True]
-                print("Invalid items", len(invalid_items))
+                logger.info("Invalid items " + str(len(invalid_items)))
 
                 combined = valid_items + invalid_items
 
@@ -111,7 +113,7 @@ def get_restaurants():
     if not food_id:
         return jsonify({'success': False, 'error': 'Food ID is required'}), 400
 
-    print("+++++Get food id "+str(food_id))
+    logger.info("+++++Get food id "+str(food_id))
     try:
         results = qloo_service.search_restaurants(
             entity_id=food_id
@@ -151,7 +153,7 @@ def get_restaurants():
         return jsonify({'success': False, 'alternatives': [],'error': 'No restaurants found'}), 404
 
     except Exception as e:
-        print(f"Error getting restaurants: {e}")
+        logger.error(f"Error getting restaurants: {e}")
         return jsonify({
             'success': False,
             'alternatives': [],
@@ -161,15 +163,15 @@ def get_restaurants():
 @app.route('/api/restaurant/<restaurant_id>')
 def get_restaurant_detail(restaurant_id):
     try:
-        print(f"\nFetching details for restaurant ID: {restaurant_id}")  
+        logger.info(f"\nFetching details for restaurant ID: {restaurant_id}")  
         result = qloo_service.get_restaurant_details(restaurant_id)
         if result:
-            print("Restaurant tags:", result.get('tags', []))  # Log restaurant tags
+            logger.info("Restaurant tags: %s", result.get('tags', []))  # Log restaurant tags
             return jsonify({'success': True, 'restaurant': result})
         else:
             return jsonify({'success': False, 'message': 'Restaurant not found'}), 404
     except Exception as e:
-        print(f"Error getting restaurant details: {e}")
+        logger.error(f"Error getting restaurant details: {e}")
         return jsonify({'success': False, 'message': 'Error getting restaurant details'}), 500
 
 if __name__ == '__main__':
