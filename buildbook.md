@@ -217,8 +217,9 @@ WantedBy=multi-user.target
 ```
 
 Where `/home/myuser/.env` contains:
-- export FLASK_SECRET_KEY=<my_secret_key>
-- export QLOO_API_KEY=<my_api_key>
+- FLASK_SECRET_KEY=<my_secret_key>
+- QLOO_API_KEY=<my_api_key>
+Linux files are created with 644 permission by default so it's fine with the default permission.
 
 ```bash
 sudo systemctl daemon-reexec
@@ -228,6 +229,12 @@ sudo systemctl start study_bites
 
 sudo systemctl status study_bites
 ```
+
+To restart the service:
+```bash
+sudo systemctl restart study_bites.service
+```
+
 
 ### 6.6 Verify the application
 
@@ -242,4 +249,9 @@ Access `https://qloo.simplyjec.com/` in a browser and the happy journey starts.
 Double confirm by checking access log
 ```bash
 tail -f /var/log/study_bites/access.log
+
+tail -f logs/app.log
 ```
+
+### 6.7 Schedule VM auto-shutdown and auto-start
+As running VMs incur unnecessary cost when not being used, create Azure automation tasks to stop the VM at 9PM EDT and start at 7AM EDT.
