@@ -13,7 +13,7 @@ chmod 400 ~/Documents/projects/study_bites/my_key.pem
 
 ### 1.2 Upload the source code to remote machine
 ```bash
-sftp -i ~/Documents/projects/study_bites/my_key.pem myuser@4.155.11.254
+sftp -i ~/Documents/projects/study_bites/my_key.pem myuser@4.246.67.29
 put /Users/myuser/Documents/projects/study_bites/study_bites.zip
 
 bye
@@ -21,7 +21,7 @@ bye
 
 ### 1.3 Log onto the remote machine
 ```bash
-ssh -i ~/Documents/projects/study_bites/my_key.pem myuser@4.155.11.254
+ssh -i ~/Documents/projects/study_bites/my_key.pem myuser@4.246.67.29
 sudo apt install unzip
 unzip study_bites.zip 
 
@@ -164,7 +164,7 @@ This will create:
 
 ### 6.3 Upload to the server
 ```bash
-scp dist/study_bites-1.0.1-py3-none-any.whl  -i ~/Documents/projects/study_bites/my_key.pem myuser@4.155.11.254
+scp -i ~/Documents/projects/my_key.pem dist/study_bites-1.0.1-py3-none-any.whl myuser@4.246.67.29:/home/myuser  study_bites-1.0.1-py3-none-any.whl
 ```
 
 
@@ -193,7 +193,7 @@ kill -9 <pid>
 
 ### 6.5 Auto-start on Ubuntu server reboot
 ```bash
-sudo nano /etc/systemd/system/study_bites.service
+sudo vi /etc/systemd/system/study_bites.service
 ```
 
 ```
@@ -202,10 +202,11 @@ Description=StudyBites Gunicorn Service
 After=network.target
 
 [Service]
+EnvironmentFile=/home/myuser/.env
 User=myuser
 Group=www-data
 WorkingDirectory=/home/myuser/study_bites
-ExecStart=/home/myuser/venv/bin/gunicorn \
+ExecStart=/home/myuser/myenv/bin/gunicorn \
     -w 5 -b 0.0.0.0:5000 study_bites.app:app \
     --access-logfile /var/log/study_bites/access.log \
     --error-logfile /var/log/study_bites/error.log \
@@ -214,6 +215,10 @@ ExecStart=/home/myuser/venv/bin/gunicorn \
 [Install]
 WantedBy=multi-user.target
 ```
+
+Where `/home/myuser/.env` contains:
+- export FLASK_SECRET_KEY=<my_secret_key>
+- export QLOO_API_KEY=<my_api_key>
 
 ```bash
 sudo systemctl daemon-reexec
