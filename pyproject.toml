@@ -23,3 +23,8 @@ study_bites = [
   "templates/*.html",
   "static/**/*"
 ]
+
+[tool.pdm.dev-dependencies]
+test = [
+    "pytest>=8.3.3",
+]
