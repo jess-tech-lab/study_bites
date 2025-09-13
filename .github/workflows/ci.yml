@@ -1,0 +1,41 @@
+name: PDM CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout repo
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # 2. Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      # 3. Install PDM
+      - name: Install PDM
+        run: pip install pdm
+
+      # 4. Install dependencies (dev included)
+      - name: Install dependencies
+        run: pdm install --dev
+
+      # 5. Optional: Build your package
+      - name: Build package
+        run: pdm build
+
+      # 6. Run tests
+      - name: Run tests
+        run: pdm run pytest
+
+      # 7. Extra: print message
+      - name: Print Success
+        run: echo "Successfully Build"
