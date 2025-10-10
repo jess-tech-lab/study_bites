@@ -24,6 +24,10 @@ study_bites = [
   "static/**/*"
 ]
 
+[tool.setuptools.packages.find]
+include = ["study_bites*"]
+exclude = ["study_bites/assets*"]
+
 [tool.pdm.dev-dependencies]
 test = [
     "pytest>=8.3.3",
